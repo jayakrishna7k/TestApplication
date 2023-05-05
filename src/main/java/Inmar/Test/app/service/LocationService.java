@@ -1,11 +1,14 @@
 package Inmar.Test.app.service;
 
 import Inmar.Test.app.dto.response.LocationsResponse;
+import Inmar.Test.app.exception.MetaDataNotFoundException;
 import Inmar.Test.app.jpa.model.Location;
 import Inmar.Test.app.mapper.LocationDetailsMapper;
 import Inmar.Test.app.repository.LocationRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
 
 @Service
 public class LocationService {
@@ -15,7 +18,11 @@ public class LocationService {
     private LocationRepository locationRepository;
 
     public LocationsResponse getAvailableLocations() {
-        return locationDetailsMapper.mapListOfLocationDetails(locationRepository.findAll());
+        List<Location> locs=locationRepository.findAll();
+        if(locs.isEmpty()){
+            throw new MetaDataNotFoundException("Locations related data not found");
+        }
+        return locationDetailsMapper.mapListOfLocationDetails(locs);
     }
 
     public Location getLocationById(long id) {

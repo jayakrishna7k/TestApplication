@@ -2,6 +2,7 @@ package Inmar.Test.app.service;
 
 import Inmar.Test.app.dto.request.MetaDataRequest;
 import Inmar.Test.app.dto.response.SkuDetailsResponse;
+import Inmar.Test.app.exception.SkuDataNotFoundException;
 import Inmar.Test.app.jpa.model.SkuData;
 import Inmar.Test.app.mapper.SkuDetailsMapper;
 import Inmar.Test.app.repository.SkuDataRepository;
@@ -26,28 +27,36 @@ public class SKUDataService {
     public String savedSkuData() {
         List<String> rowsOfSkuData = getSkuDataFromFile();
         rowsOfSkuData.remove(0);
-        if (!rowsOfSkuData.isEmpty()) {
-            //Delete, if any skudata exists in Database
-            skuDataRepository.deleteAll();
-            rowsOfSkuData.stream().filter(skuDataRow -> !StringUtils.isEmpty(skuDataRow)).forEach(skuDataRow -> {
-                List<String> columns = Arrays.asList(skuDataRow.split(","));
-                SkuData skuData = new SkuData();
-                if (!columns.isEmpty()) {
-                    skuData.setSkuDataId(Integer.parseInt(columns.get(0)));
-                    skuData.setSkuName(columns.get(1));
-                    skuData.setLocation(columns.get(2));
-                    skuData.setDepartment(columns.get(3));
-                    skuData.setCategory(columns.get(4));
-                    skuData.setSubcategory(columns.get(5));
-                    skuDataRepository.save(skuData);
-                }
-            });
+        if (rowsOfSkuData.isEmpty()) {
+            if (rowsOfSkuData.isEmpty()) {
+
+                throw new SkuDataNotFoundException("Sku Data Not found in the given file");
+            }
         }
+        //Delete, if any skudata exists in Database
+        skuDataRepository.deleteAll();
+        rowsOfSkuData.stream().filter(skuDataRow -> !StringUtils.isEmpty(skuDataRow)).forEach(skuDataRow -> {
+            List<String> columns = Arrays.asList(skuDataRow.split(","));
+            SkuData skuData = new SkuData();
+            if (!columns.isEmpty()) {
+                skuData.setSkuDataId(Integer.parseInt(columns.get(0)));
+                skuData.setSkuName(columns.get(1));
+                skuData.setLocation(columns.get(2));
+                skuData.setDepartment(columns.get(3));
+                skuData.setCategory(columns.get(4));
+                skuData.setSubcategory(columns.get(5));
+                skuDataRepository.save(skuData);
+            }
+        });
         return "SkuData saved successfully";
     }
 
     public SkuDetailsResponse getSkuDetailsByMetaData(MetaDataRequest metaDataRequest) {
         List<Long> skuDataList = skuDataRepository.findSkuDetailsByMetaDataParameters(metaDataRequest.getLocation(), metaDataRequest.getDepartment(), metaDataRequest.getCategory(), metaDataRequest.getSubCategory());
+        if (skuDataList.isEmpty()) {
+
+            throw new SkuDataNotFoundException("Sku Data Not found for the requested Parameters");
+        }
         return skuDetailsMapper.mapListOfSkuDetails(skuDataList);
     }
 

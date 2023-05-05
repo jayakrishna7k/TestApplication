@@ -1,6 +1,7 @@
 package Inmar.Test.app.service;
 
 import Inmar.Test.app.dto.response.*;
+import Inmar.Test.app.exception.MetaDataNotFoundException;
 import Inmar.Test.app.jpa.model.*;
 import Inmar.Test.app.repository.MetaDataRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,6 +11,7 @@ import org.springframework.util.FileCopyUtils;
 import org.springframework.util.StringUtils;
 
 import java.nio.charset.StandardCharsets;
+import java.sql.Array;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
@@ -32,28 +34,31 @@ public class MetaDataService {
     public String savedMetaData() {
         List<String> rowsOfMetaData = getMetaDataFromFile();
         rowsOfMetaData.remove(0);
-        if (!rowsOfMetaData.isEmpty()) {
-            //Delete meteData and its related data if any exists in Database
-
-            locationService.deleteAllLocations();
-            departmentService.deleteAllDepartments();
-            categoryService.deleteAllCategories();
-            subCategoryService.deleteAllSubCategories();
-            metaDataRepository.deleteAll();
-
-            rowsOfMetaData.stream().filter(metaDataRow -> !StringUtils.isEmpty(metaDataRow)).forEach(metaDataRow -> {
-                List<String> columns = Arrays.asList(metaDataRow.split(","));
-                MetaData metaData = new MetaData();
-                if (!columns.isEmpty()) {
-                    metaData.setLocation(columns.get(0));
-                    metaData.setDepartment(columns.get(1));
-                    metaData.setCategory(columns.get(2));
-                    metaData.setSubcategory(columns.get(3));
-                    metaDataRepository.save(metaData);
-                    saveOtherDetailsOfMetaData(columns);
-                }
-            });
+        if (rowsOfMetaData.isEmpty()) {
+            throw new MetaDataNotFoundException("metadata not found in the given file");
         }
+
+        //Delete meteData and its related data if any exists in Database
+
+        locationService.deleteAllLocations();
+        departmentService.deleteAllDepartments();
+        categoryService.deleteAllCategories();
+        subCategoryService.deleteAllSubCategories();
+        metaDataRepository.deleteAll();
+
+        rowsOfMetaData.stream().filter(metaDataRow -> !StringUtils.isEmpty(metaDataRow)).forEach(metaDataRow -> {
+            List<String> columns = Arrays.asList(metaDataRow.split(","));
+            MetaData metaData = new MetaData();
+            if (!columns.isEmpty()) {
+                metaData.setLocation(columns.get(0));
+                metaData.setDepartment(columns.get(1));
+                metaData.setCategory(columns.get(2));
+                metaData.setSubcategory(columns.get(3));
+                metaDataRepository.save(metaData);
+                saveOtherDetailsOfMetaData(columns);
+            }
+        });
+
         return "Metadata loaded sucessfully";
 
     }
@@ -67,7 +72,7 @@ public class MetaDataService {
             List<DepartmentResponse> departmentResponses = departments.stream().map(dept -> new DepartmentResponse(dept.getDepartmentId(), dept.getDepartment(), dept.getDescription())).collect(Collectors.toList());
             response.setDepartments(departmentResponses);
         } else {
-            response.setDepartments(new ArrayList<>());
+            validateMetadata(new ArrayList<>());
         }
 
         return response;
@@ -83,7 +88,7 @@ public class MetaDataService {
             List<CategoryResponse> departmentResponses = categories.stream().map(cat -> new CategoryResponse(cat.getCategoryId(), cat.getCategory(), cat.getDescription())).collect(Collectors.toList());
             response.setCategories(departmentResponses);
         } else {
-            response.setCategories(new ArrayList<>());
+            validateMetadata(new ArrayList<>());
         }
 
         return response;
@@ -98,11 +103,19 @@ public class MetaDataService {
         if (locationData != null && departmentData != null && categoryData != null && subCategoryData != null) {
             List<MetaData> metadata = metaDataRepository.findMetaDataDetails(locationData.getLocation(), departmentData.getDepartment(), categoryData.getCategory(), subCategoryData.getSubCategory());
             List<MetadataResponse> metaDataResponse = metadata.stream().map(meta -> new MetadataResponse(meta.getMetaDataId(), meta.getLocation(), meta.getDepartment(), meta.getCategory(), meta.getSubcategory())).collect(Collectors.toList());
+            validateMetadata(metaDataResponse);
             response.setMetadataDetails(metaDataResponse);
         } else {
-            response.setMetadataDetails(new ArrayList<>());
+            validateMetadata(new ArrayList<>());
         }
         return response;
+    }
+
+    private void validateMetadata(List<MetadataResponse> metadata) {
+        if (metadata.isEmpty()) {
+            throw new MetaDataNotFoundException("Metadata Not found for the requested Parameters");
+        }
+
     }
 
     private void saveOtherDetailsOfMetaData(List<String> columns) {
